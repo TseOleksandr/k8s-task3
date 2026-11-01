@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: songs-db-init
+  namespace: {{ .Values.namespace }}
+data:
+  01-init-songs.sql: |
+    CREATE SEQUENCE IF NOT EXISTS songs_seq START WITH 1 INCREMENT BY 50;
+
+    CREATE TABLE IF NOT EXISTS songs (
+        id          INTEGER      NOT NULL,
+        name        VARCHAR(255),
+        artist      VARCHAR(255),
+        album       VARCHAR(255),
+        length      VARCHAR(255),
+        resource_id INTEGER      NOT NULL,
+        year        VARCHAR(255),
+        genre       VARCHAR(255),
+        PRIMARY KEY (id),
+        CONSTRAINT uk_songs_resource_id UNIQUE (resource_id)
+    );

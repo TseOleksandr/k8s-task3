@@ -1,0 +1,89 @@
+replicaCount: 2
+
+namespace: k8s-program
+
+image:
+  repository: songs-image
+  tag: "2.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  port: 8081
+  targetPort: 8081
+  nodePort: 30081
+
+database:
+  image: postgres:16
+  service:
+    name: songs-db
+    port: 5432
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  storage:
+    storageClassName: standard
+    size: 1Gi
+  probes:
+    startup:
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 30
+    liveness:
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+appStorage:
+  enabled: true
+  pvName: songs-pv
+  pvcName: songs-pvc
+  storageClassName: manual
+  size: 1Gi
+  hostPath: /mnt/data/songs
+  reclaimPolicy: Retain
+
+config:
+  postgresDb: postgres
+  dbUrl: "jdbc:postgresql://resources-db:5432/postgres"
+  pgdata: /var/lib/postgresql/data/pgdata
+  songsMsPort: "8081"
+  resourcesMsPort: "8080"
+
+secret:
+  existingSecret: ""
+  springDatasourceUsername: postgres
+  springDatasourcePassword: postgres
+  postgresUser: postgres
+  postgresPassword: postgres
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 384Mi
+  limits:
+    memory: 768Mi
+
+probes:
+  startup:
+    path: /actuator/health/liveness
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 30
+  liveness:
+    path: /actuator/health/liveness
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    path: /actuator/health/readiness
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 3

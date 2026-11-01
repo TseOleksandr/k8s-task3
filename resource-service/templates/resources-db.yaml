@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.database.service.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.database.service.name }}
+spec:
+  serviceName: {{ .Values.database.service.name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.database.service.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.database.service.name }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.database.image }}
+          ports:
+            - containerPort: {{ .Values.database.service.port }}
+          envFrom:
+            - configMapRef:
+                name: resources-config
+            - secretRef:
+                name: {{ include "resources-ms.secretName" . }}
+          {{- with .Values.database.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            periodSeconds: {{ .Values.database.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.database.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.database.probes.startup.failureThreshold }}
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            periodSeconds: {{ .Values.database.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.database.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.database.probes.liveness.failureThreshold }}
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            periodSeconds: {{ .Values.database.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.database.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.database.probes.readiness.failureThreshold }}
+          volumeMounts:
+            - name: resources-db-data
+              mountPath: /var/lib/postgresql/data
+            - name: resources-db-init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: resources-db-init
+          configMap:
+            name: resources-db-init
+  volumeClaimTemplates:
+    - metadata:
+        name: resources-db-data
+      spec:
+        storageClassName: {{ .Values.database.storage.storageClassName }}
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.database.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.database.service.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.database.service.name }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Values.database.service.name }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.database.service.port }}
+      targetPort: {{ .Values.database.service.port }}
